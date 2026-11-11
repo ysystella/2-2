@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기타 지판 외우기</title>
+    <style>
+        /* 기본 스타일 설정 */
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #f4f4f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            color: #1a1a1a;
+        }
+        .header p {
+            margin: 0;
+            color: #666;
+        }
+        .progress {
+            font-size: 20px;
+            font-weight: bold;
+            color: #007aff;
+            margin-top: 15px;
+        }
+
+        /* 지판 영역 스타일 (데스크탑 가로 배치 기준) */
+        .fretboard-wrapper {
+            display: flex;
+            flex-direction: column;
+            margin: 20px 0;
+            width: 100%;
+            max-width: 800px;
+        }
+        .fret-numbers {
+            display: grid;
+            grid-template-columns: 40px repeat(12, 1fr);
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .fret-numbers div {
+            grid-row: 1;
+            grid-column: calc(var(--fret) + 1);
+        }
+        .fretboard-grid {
+            display: grid;
+            grid-template-columns: 40px repeat(12, 1fr);
+            grid-template-rows: repeat(6, 40px);
+            background-color: #4a3018; /* 우드 톤 배경 */
+            border: 2px solid #2c1a0a;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .fret-cell {
+            position: relative;
+            border-right: 2px solid #b0b0b0; /* 프렛 쇠 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            grid-row: var(--string);
+            grid-column: calc(var(--fret) + 1);
+        }
+        .fret-cell.fret-0 {
+            border-right: 4px solid #d4c3a3; /* 너트(상현주) */
+            background-color: #3a2210;
+        }
+        .fret-cell.fret-12 {
+            border-right: none;
+        }
+        
+        /* 기타 줄 표현 */
+        .string-line {
+            position: absolute;
+            width: 100%;
+            height: var(--thickness);
+            background-color: #e8e8e8;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            z-index: 1;
+        }
+
+        /* 지판 마커 (인레이) */
+        .marker {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background-color: #d4c3a3;
+            border-radius: 50%;
+            z-index: 0;
+        }
+        .marker-single { transform: translateY(20px); }
+        .marker-double { transform: translateY(20px); }
+
+        /* 문제 출제 위치 강조 */
+        .target-dot {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background-color: #ff3b30;
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: 0 0 10px rgba(255, 59, 48, 0.8);
+            display: none;
+        }
+        .fret-cell.active .target-dot { display: block; }
+        .fret-cell.active.correct .target-dot {
+            background-color: #34c759;
+            box-shadow: 0 0 10px rgba(52, 199, 89, 0.8);
+        }
+
+        /* 정답 선택 버튼 영역 */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 10px;
+        }
+        .note-btn {
+            padding: 15px 0;
+            font-size: 18px;
+            font-weight: bold;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .note-btn:hover { background-color: #f0f0f0; }
+        .note-btn.correct { background-color: #34c759; color: white; border-color: #34c759; }
+        .note-btn.wrong { background-color: #ff3b30; color: white; border-color: #ff3b30; }
+
+        /* 결과 화면 모달 */
+        .modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal.hidden { display: none; }
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            max-width: 300px;
+            width: 90%;
+        }
+        .modal-content h2 { margin-top: 0; color: #1a1a1a; }
+        .modal-content p { font-size: 16px; margin: 10px 0; }
+        .modal-content button {
+            margin-top: 25px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .modal-content button:hover { background-color: #005bb5; }
+
+        /* 모바일 세로 배치 반응형 스타일 */
+        @media (max-width: 600px) {
+            .fretboard-wrapper {
+                flex-direction: row;
+                justify-content: center;
+            }
+            .fret-numbers {
+                grid-template-columns: 30px;
+                grid-template-rows: 40px repeat(12, 1fr);
+                margin-bottom: 0;
+                margin-right: 5px;
+            }
+            .fret-numbers div {
+                grid-column: 1;
+                grid-row: calc(var(--fret) + 1);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .fretboard-grid {
+                grid-template-columns: repeat(6, 1fr);
+                grid-template-rows: 40px repeat(12, 1fr);
+                width: 210px; /* 모바일 지판 너비 */
+            }
+            .fret-cell {
+                /* 모바일에서는 6번줄이 왼쪽, 1번줄이 오른쪽으로 오도록 배치 */
+                grid-row: calc(var(--fret) + 1);
+                grid-column: calc(7 - var(--string));
+                border-right: none;
+                border-bottom: 2px solid #b0b0b0;
+            }
+            .fret-cell.fret-0 {
+                border-right: none;
+                border-bottom: 4px solid #d4c3a3;
+            }
+            .fret-cell.fret-12 { border-bottom: none; }
+            .string-line {
+                width: var(--thickness);
+                height: 100%;
+            }
+            .marker-single, .marker-double {
+                transform: translateX(-17px); /* 세로 모드일 때 마커 위치 조정 */
+            }
+            .controls {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>이 음은 무엇일까요?</h1>
+        <p>표시된 지판 위치를 보고 음 이름을 선택하세요.</p>
+        <div class="progress" id="progress">1 / 20</div>
+    </div>
+
+    <!-- 지판이 그려질 영역 -->
+    <div class="fretboard-wrapper" id="fretboard"></div>
+
+    <!-- 정답 선택 버튼 영역 -->
+    <div class="controls" id="controls"></div>
+
+    <!-- 결과 화면 모달 -->
+    <div id="result-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>연습 완료! 🎸</h2>
+            <p>첫 시도 정답: <strong id="score">0</strong> / 20</p>
+            <p>정답 비율: <strong id="accuracy">0</strong>%</p>
+            <p>총 틀린 횟수: <strong id="mistakes">0</strong>회</p>
+            <button id="restart-btn">다시 연습하기</button>
+        </div>
+    </div>
+
+    <script>
+        // 12음계 데이터
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        
+        // 표준 튜닝 각 줄의 0프렛(개방현) 음의 인덱스
+        // 1번줄:E(4), 2번줄:B(11), 3번줄:G(7), 4번줄:D(2), 5번줄:A(9), 6번줄:E(4)
+        const stringTuning = { 1: 4, 2: 11, 3: 7, 4: 2, 5: 9, 6: 4 };
+
+        let questions = [];
+        let currentQuestionIndex = 0;
+        let isFirstAttempt = true;
+        let score = 0;
+        let mistakes = 0;
+        let isWaiting = false; // 정답을 맞힌 후 다음 문제로 넘어가는 대기 시간
+
+        // 초기화 함수
+        function init() {
+            generateQuestions();
+            renderFretboard();
+            renderButtons();
+            showQuestion();
+        }
+
+        // 20개의 문제 생성 로직
+        function generateQuestions() {
+            questions = [];
+            let usedStrings = new Set();
+            let prevString = -1, prevFret = -1;
+            
+            while (questions.length < 20) {
+                let string = Math.floor(Math.random() * 6) + 1; // 1~6번줄
+                let fret = Math.floor(Math.random() * 13);      // 0~12프렛
+                
+                // 모든 줄이 최소 1번 이상 포함되도록 보장하는 로직
+                let remaining = 20 - questions.length;
+                let unused = [1, 2, 3, 4, 5, 6].filter(s => !usedStrings.has(s));
+                if (unused.length >= remaining) {
+                    string = unused[0];
+                }
+                
+                // 연속으로 같은 위치가 나오지 않도록 방지
+                if (string === prevString && fret === prevFret) continue;
+                
+                // 정답 계산 (개방현 인덱스 + 프렛 수) % 12
+                let noteIndex = (stringTuning[string] + fret) % 12;
+                questions.push({ string, fret, answer: notes[noteIndex] });
+                
+                usedStrings.add(string);
+                prevString = string;
+                prevFret = fret;
+            }
+        }
+
+        // 화면에 지판 그리기
+        function renderFretboard() {
+            const fretboard = document.getElementById('fretboard');
+            fretboard.innerHTML = '';
+            
+            // 프렛 번호 표시 (0~12)
+            const numbers = document.createElement('div');
+            numbers.className = 'fret-numbers';
+            for (let i = 0; i <= 12; i++) {
+                const num = document.createElement('div');
+                num.style.setProperty('--fret', i);
+                num.textContent = i;
+                numbers.appendChild(num);
+            }
+            fretboard.appendChild(numbers);
+            
+            // 실제 지판 격자 생성
+            const board = document.createElement('div');
+            board.className = 'fretboard-grid';
+            
+            for (let s = 1; s <= 6; s++) {
+                // 줄 굵기 시각적 차이 (1번줄 얇게 ~ 6번줄 굵게)
+                let thickness = [1, 1.5, 2, 2.5, 3, 3.5][s-1] + 'px';
+                
+                for (let f = 0; f <= 12; f++) {
+                    const cell = document.createElement('div');
+                    cell.className = `fret-cell fret-${f} string-${s}`;
+                    cell.style.setProperty('--string', s);
+                    cell.style.setProperty('--fret', f);
+                    cell.style.setProperty('--thickness', thickness);
+                    cell.id = `cell-${s}-${f}`;
+                    
+                    // 기타 줄 추가
+                    const stringLine = document.createElement('div');
+                    stringLine.className = 'string-line';
+                    cell.appendChild(stringLine);
+                    
+                    // 3, 5, 7, 9 프렛 마커 (3번줄과 4번줄 사이 느낌으로 배치)
+                    if (s === 3 && [3, 5, 7, 9].includes(f)) {
+                        const marker = document.createElement('div');
+                        marker.className = 'marker marker-single';
+                        cell.appendChild(marker);
+                    }
+                    // 12 프렛 더블 마커
+                    if ((s === 2 || s === 4) && f === 12) {
+                        const marker = document.createElement('div');
+                        marker.className = 'marker marker-double';
+                        cell.appendChild(marker);
+                    }
+                    
+                    // 문제 출제 시 빨간 점이 표시될 요소
+                    const targetDot = document.createElement('div');
+                    targetDot.className = 'target-dot';
+                    cell.appendChild(targetDot);
+                    
+                    board.appendChild(cell);
+                }
+            }
+            fretboard.appendChild(board);
+        }
+
+        // 정답 버튼 렌더링
+        function renderButtons() {
+            const controls = document.getElementById('controls');
+            controls.innerHTML = '';
+            notes.forEach(note => {
+                const btn = document.createElement('button');
+                btn.className = 'note-btn';
+                btn.textContent = note;
+                btn.onclick = () => handleGuess(note, btn);
+                controls.appendChild(btn);
+            });
+        }
+
+        // 문제 화면에 표시
+        function showQuestion() {
+            // 이전 문제의 강조 및 버튼 색상 초기화
+            document.querySelectorAll('.fret-cell.active').forEach(el => {
+                el.classList.remove('active', 'correct');
+            });
+            document.querySelectorAll('.note-btn').forEach(btn => {
+                btn.classList.remove('correct', 'wrong');
+            });
+            
+            const q = questions[currentQuestionIndex];
+            const cell = document.getElementById(`cell-${q.string}-${q.fret}`);
+            cell.classList.add('active'); // 출제 위치 강조
+            
+            isFirstAttempt = true;
+            isWaiting = false;
+            document.getElementById('progress').textContent = `${currentQuestionIndex + 1} / 20`;
+        }
+
+        // 사용자가 답을 선택했을 때의 처리
+        function handleGuess(note, btn) {
+            if (isWaiting) return; // 정답 맞힌 후 대기 중이면 클릭 무시
+            
+            const q = questions[currentQuestionIndex];
+            if (note === q.answer) {
+                // 정답인 경우
+                btn.classList.add('correct');
+                const cell = document.getElementById(`cell-${q.string}-${q.fret}`);
+                cell.classList.add('correct'); // 지판 점 초록색으로 변경
+                
+                if (isFirstAttempt) score++;
+                isWaiting = true;
+                
+                // 0.8초 대기 후 다음 문제로
+                setTimeout(() => {
+                    currentQuestionIndex++;
+                    if (currentQuestionIndex < 20) {
+                        showQuestion();
+                    } else {
+                        showResult();
+                    }
+                }, 800);
+            } else {
+                // 오답인 경우
+                if (!btn.classList.contains('wrong')) {
+                    btn.classList.add('wrong');
+                    if (isFirstAttempt) {
+                        isFirstAttempt = false; // 첫 시도 실패 처리
+                    }
+                    mistakes++;
+                }
+            }
+        }
+
+        // 20문제 완료 후 결과 화면 표시
+        function showResult() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('accuracy').textContent = ((score / 20) * 100).toFixed(0);
+            document.getElementById('mistakes').textContent = mistakes;
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+
+        // 다시 연습하기
+        function restart() {
+            currentQuestionIndex = 0;
+            score = 0;
+            mistakes = 0;
+            document.getElementById('result-modal').classList.add('hidden');
+            generateQuestions();
+            showQuestion();
+        }
+
+        // 페이지 로드 시 실행
+        window.onload = () => {
+            init();
+            document.getElementById('restart-btn').onclick = restart;
+        };
+    </script>
+</body>
+</html>
